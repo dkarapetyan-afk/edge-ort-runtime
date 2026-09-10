@@ -1,0 +1,9 @@
+version: 2
+updates:
+  # Maintain Rust dependencies in Cargo.toml and Cargo.lock
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    rebase-strategy: "auto"
