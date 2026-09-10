@@ -1,0 +1,13 @@
+/target
+**/*.rs.bk
+.DS_Store
+models/*.onnx
+!models/tiny_asr_energy.onnx
+models/*.onnx.json
+models/piper_en.onnx
+models/*.bin
+models/*.wav
+models/*.partial
+
+# Optional CJK faces extracted locally (~16MB each); see scripts/extract-cjk-fonts.sh
+assets/fonts/*.ttf

@@ -1,0 +1,46 @@
+[package]
+name = "edge-ort-runtime"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "Native Linux daemon for pluggable PipeWire audio + ONNX Runtime inference"
+license = "MIT OR Apache-2.0"
+authors = ["index.dk.workers.dev"]
+publish = false
+
+[[bin]]
+name = "listen"
+path = "src/bin/listen.rs"
+
+[[bin]]
+name = "ort-probe"
+path = "src/bin/ort-probe.rs"
+
+[[bin]]
+name = "edge-ort-gui"
+path = "src/bin/edge_ort_gui.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+ort = { version = "=2.0.0-rc.10", default-features = true }
+pipewire = "0.10"
+ndarray = "0.16"
+eframe = "0.31"  # MSRV 1.85; Cargo.lock pins image/idna_adapter/wayland-protocols
+egui = "0.31"
+# Whisper.cpp ASR plug (manifest meta.backend = "whisper_ggml"); VAD/TTS remain on ort.
+whisper-rs = "=0.14.4"
+# WAV file AudioSource + ASR smoke fixtures
+hound = "3.5"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+lto = true
+codegen-units = 1

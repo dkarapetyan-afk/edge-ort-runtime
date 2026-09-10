@@ -1,0 +1,10 @@
+{
+  "name": "default",
+  "description": "Demo profile: Silero VAD + Whisper ggml ASR + NLLB MT + Piper TTS",
+  "nodes": {
+    "vad": "vad.silero.json",
+    "asr": "asr.whisper.json",
+    "mt": "mt.nllb.json",
+    "tts": "tts.piper.json"
+  }
+}
