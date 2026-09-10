@@ -7,3 +7,11 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 10
     rebase-strategy: "auto"
+
+  # Maintain GitHub Actions workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    rebase-strategy: "auto"

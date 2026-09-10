@@ -1,5 +1,8 @@
 # edge-ort-runtime
 
+[![CI](https://github.com/dkarapetyan-afk/edge-ort-runtime/actions/workflows/ci.yml/badge.svg)](https://github.com/dkarapetyan-afk/edge-ort-runtime/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Native **Linux** app for **pluggable PipeWire audio** + **ONNX Runtime** inference, with a CLI (`listen`) and a GUI (`edge-ort-gui`).
 
 Core types are capability-oriented (`vad | asr | mt | tts`). Concrete models — Silero, Whisper, NLLB, Piper, or anything else — are **plugs** described by JSON manifests. They are never baked into core enums beyond the capability kind.
