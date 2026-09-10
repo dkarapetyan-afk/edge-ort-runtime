@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.85"
 description = "Native Linux daemon for pluggable PipeWire audio + ONNX Runtime inference"
-license = "MIT OR Apache-2.0"
-authors = ["index.dk.workers.dev"]
+license = "MIT"
+authors = ["dk <dkarapetyan@gmail.com>"]
 publish = false
 
 [[bin]]
