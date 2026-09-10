@@ -32,7 +32,7 @@ ort = { version = "=2.0.0-rc.10", default-features = true }
 pipewire = "0.10"
 ndarray = "0.16"
 eframe = "0.31"  # MSRV 1.85; Cargo.lock pins image/idna_adapter/wayland-protocols
-egui = "0.31"
+egui = "0.36"
 # Whisper.cpp ASR plug (manifest meta.backend = "whisper_ggml"); VAD/TTS remain on ort.
 whisper-rs = "=0.14.4"
 # WAV file AudioSource + ASR smoke fixtures
