@@ -1,0 +1,18 @@
+{
+  "id": "silero-vad",
+  "capability": "vad",
+  "model_path": "../../models/silero_vad.onnx",
+  "inputs": ["input", "state", "sr"],
+  "outputs": ["output", "stateN"],
+  "sample_rate": 16000,
+  "languages": [],
+  "ep_prefs": ["cuda", "cpu"],
+  "meta": {
+    "note": "Silero VAD ONNX — download via scripts/download-models.sh; energy fallback until present",
+    "window_samples": 512,
+    "context_samples": 64,
+    "state_h": 2,
+    "state_c": 128,
+    "threshold": 0.5
+  }
+}

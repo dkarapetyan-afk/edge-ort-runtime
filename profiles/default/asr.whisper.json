@@ -1,0 +1,39 @@
+{
+  "id": "whisper-tiny",
+  "capability": "asr",
+  "model_path": "../../models/ggml-tiny.bin",
+  "inputs": [
+    "pcm_f32_mono_16k"
+  ],
+  "outputs": [
+    "text"
+  ],
+  "sample_rate": 16000,
+  "languages": [
+    "en",
+    "fr",
+    "es",
+    "ar",
+    "ru",
+    "hi",
+    "zh",
+    "ko",
+    "ja",
+    "ur",
+    "fa",
+    "tr",
+    "az",
+    "hy",
+    "multilingual"
+  ],
+  "ep_prefs": [
+    "cpu"
+  ],
+  "meta": {
+    "backend": "whisper_ggml",
+    "language": "auto",
+    "task": "transcribe",
+    "n_threads": 4,
+    "note": "Real Whisper ASR via whisper.cpp (whisper-rs). ggml-tiny multilingual. Set meta.language to en|fr|es|ar|ru|hi|zh|ko|ja|ur|fa|tr|az|hy|auto. VAD/TTS stay on ORT. ORT encoder/decoder Whisper remains available as backend=whisper if you export ONNX."
+  }
+}

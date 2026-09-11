@@ -1,0 +1,13 @@
+{
+  "id": "nllb-200-distilled",
+  "capability": "mt",
+  "model_path": "../../models/nllb.onnx",
+  "inputs": ["input_ids"],
+  "outputs": ["logits"],
+  "sample_rate": 16000,
+  "languages": ["en", "fr", "de", "es"],
+  "ep_prefs": ["cuda", "cpu"],
+  "meta": {
+    "note": "NLLB plug placeholder — passthrough until model is present"
+  }
+}

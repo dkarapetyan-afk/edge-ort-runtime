@@ -1,0 +1,14 @@
+{
+  "id": "tiny-asr-energy",
+  "capability": "asr",
+  "model_path": "../../models/tiny_asr_energy.onnx",
+  "inputs": ["audio"],
+  "outputs": ["logits"],
+  "sample_rate": 16000,
+  "languages": ["und"],
+  "ep_prefs": ["tensorrt", "cuda", "rocm", "openvino", "cpu"],
+  "meta": {
+    "backend": "tiny_energy",
+    "note": "Bundled demo ONNX: energy→4-class logits. Default profile ASR so demos always work."
+  }
+}

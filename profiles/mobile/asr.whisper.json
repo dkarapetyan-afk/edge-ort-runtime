@@ -1,0 +1,43 @@
+{
+  "id": "whisper-mobile",
+  "capability": "asr",
+  "model_path": "../../models/ggml-tiny-q8_0.bin",
+  "inputs": [
+    "pcm_f32_mono_16k"
+  ],
+  "outputs": [
+    "text"
+  ],
+  "sample_rate": 16000,
+  "languages": [
+    "en",
+    "fr",
+    "es",
+    "ar",
+    "ru",
+    "hi",
+    "zh",
+    "ko",
+    "ja",
+    "ur",
+    "fa",
+    "tr",
+    "az",
+    "hy",
+    "multilingual"
+  ],
+  "ep_prefs": [
+    "qnn",
+    "nnapi",
+    "xnnpack",
+    "cpu"
+  ],
+  "meta": {
+    "backend": "whisper_ggml",
+    "language": "auto",
+    "task": "transcribe",
+    "n_threads": 2,
+    "dual_translate": true,
+    "note": "Quantized INT8/Q8_0 Whisper multilingual model optimized for mobile battery and thermal constraints."
+  }
+}

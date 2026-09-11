@@ -1,0 +1,77 @@
+[package]
+name = "edge-ort-runtime"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+description = "Native Linux daemon for pluggable PipeWire audio + ONNX Runtime inference"
+license = "MIT"
+authors = ["dk <dkarapetyan@gmail.com>"]
+publish = false
+
+[[bin]]
+name = "listen"
+path = "src/bin/listen.rs"
+required-features = ["pipewire"]
+test = false
+
+[[bin]]
+name = "ort-probe"
+path = "src/bin/ort-probe.rs"
+test = false
+
+[[bin]]
+name = "edge-ort-gui"
+path = "src/bin/edge_ort_gui.rs"
+required-features = ["pipewire"]
+test = false
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi_bindgen.rs"
+required-features = ["uniffi"]
+test = false
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+ort = { version = "=2.0.0-rc.13", default-features = true }
+pipewire = { version = "0.10", optional = true }
+ndarray = "0.17"
+# WAV file AudioSource + ASR smoke fixtures
+hound = "3.5"
+uniffi = { version = "0.32", features = ["cli"], optional = true }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+eframe = "0.36"
+egui = "0.36"
+# Whisper.cpp ASR plug (manifest meta.backend = "whisper_ggml"); VAD/TTS remain on ort.
+whisper-rs = "=0.16.0"
+
+[features]
+default = ["pipewire"]
+pipewire = ["dep:pipewire"]
+uniffi = ["dep:uniffi"]
+# Enable to compile GPU/accelerator EPs into the binary (needs matching ORT build).
+ort-cuda = ["ort/cuda"]
+ort-tensorrt = ["ort/tensorrt"]
+ort-rocm = ["ort/rocm"]
+ort-openvino = ["ort/openvino"]
+ort-qnn = ["ort/qnn"]
+ort-nnapi = ["ort/nnapi"]
+ort-xnnpack = ["ort/xnnpack"]
+lax-feature-matching = ["ort/lax-feature-matching"]
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+lto = true
+codegen-units = 1

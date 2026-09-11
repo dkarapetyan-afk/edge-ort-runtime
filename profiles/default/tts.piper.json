@@ -1,0 +1,13 @@
+{
+  "id": "piper-en",
+  "capability": "tts",
+  "model_path": "../../models/en_US-lessac-low.onnx",
+  "inputs": ["input"],
+  "outputs": ["output"],
+  "sample_rate": 16000,
+  "languages": ["en"],
+  "ep_prefs": ["cpu"],
+  "meta": {
+    "note": "Piper low voice — download via scripts/download-models.sh (onnx + onnx.json). Beep stub + PipeWire playback until phoneme frontend is wired."
+  }
+}

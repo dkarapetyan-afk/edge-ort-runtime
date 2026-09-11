@@ -1,0 +1,13 @@
+{
+  "id": "mt-opus-mobile",
+  "capability": "mt",
+  "model_path": "../../models/opus_mt_int8.onnx",
+  "inputs": ["input_ids", "attention_mask"],
+  "outputs": ["logits"],
+  "sample_rate": 0,
+  "languages": ["auto", "en"],
+  "ep_prefs": ["qnn", "nnapi", "xnnpack", "cpu"],
+  "meta": {
+    "note": "Quantized OPUS/NLLB machine translation model for mobile NPU/CPU inference"
+  }
+}

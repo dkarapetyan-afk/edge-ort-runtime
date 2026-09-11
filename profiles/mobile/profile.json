@@ -1,0 +1,9 @@
+{
+  "name": "mobile",
+  "description": "Mobile edge profile: Silero VAD (INT8) + Whisper ASR (INT8) + OPUS MT (INT8) on QNN/NNAPI/XNNPACK",
+  "nodes": {
+    "vad": "vad.silero.json",
+    "asr": "asr.whisper.json",
+    "mt": "mt.opus.json"
+  }
+}
