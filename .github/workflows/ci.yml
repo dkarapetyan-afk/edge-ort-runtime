@@ -11,7 +11,7 @@ env:
 
 jobs:
   test:
-    name: Build & Test
+    name: Build & Test Linux (Debug)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -43,6 +43,22 @@ jobs:
       - name: Test
         run: cargo test --verbose
 
+      - name: Package Linux Debug Binaries
+        run: |
+          mkdir -p dist/linux-debug
+          cp target/debug/listen dist/linux-debug/
+          cp target/debug/ort-probe dist/linux-debug/
+          cp target/debug/edge-ort-gui dist/linux-debug/
+          cp target/debug/libedge_ort_runtime.so dist/linux-debug/
+
+      - name: Upload Linux Debug Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: edge-ort-linux-debug
+          path: dist/linux-debug/
+          if-no-files-found: error
+          retention-days: 14
+
   android:
     name: Android Build & Test (SDK 36)
     runs-on: ubuntu-latest
@@ -67,8 +83,16 @@ jobs:
       - name: Make Gradle Wrapper Executable
         run: chmod +x gradlew
 
-      - name: Build Android Library
+      - name: Build Android Library & Debug APK
         run: ./gradlew :edge-ort-android:assembleDebug --stacktrace
 
       - name: Run Android Unit Tests
         run: ./gradlew :edge-ort-android:testDebugUnitTest --stacktrace
+
+      - name: Upload Android Debug APK Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: edge-ort-android-debug-apk
+          path: bindings/android/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
