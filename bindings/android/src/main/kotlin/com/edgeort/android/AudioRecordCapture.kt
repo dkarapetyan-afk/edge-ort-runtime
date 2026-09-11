@@ -44,7 +44,9 @@ class AudioRecordCapture(
     private val pipeline: NativePipelineHandle,
     private val sourceMode: AudioCaptureSource = AudioCaptureSource.ALL_AUDIO,
     private val mediaProjection: MediaProjection? = null,
-    private val sampleRate: Int = 16000
+    private val sampleRate: Int = 16000,
+    private val disableMic: Boolean = false,
+    var onAudioPcm: ((ByteArray) -> Unit)? = null
 ) {
     companion object {
         private const val TAG = "AudioRecordCapture"
@@ -81,11 +83,11 @@ class AudioRecordCapture(
         val minBufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfigMono, encodingPcm16)
         val bufferSize = (minBufferSize * 2).coerceAtLeast(sampleRate / 10)
 
-        val needMic = sourceMode == AudioCaptureSource.ALL_AUDIO || sourceMode == AudioCaptureSource.MIC_ONLY
+        val needMic = !disableMic && (sourceMode == AudioCaptureSource.ALL_AUDIO || sourceMode == AudioCaptureSource.MIC_ONLY)
         val needPlayback = (sourceMode == AudioCaptureSource.ALL_AUDIO || sourceMode == AudioCaptureSource.SPEAKERS_ONLY) &&
                 mediaProjection != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 
-        // 1. Initialize Microphone Recorder if needed
+        // 1. Initialize Microphone Recorder if needed (use VOICE_RECOGNITION for cooperative concurrent capture with Google SODA / TPU)
         if (needMic) {
             try {
                 val mic = AudioRecord(
@@ -196,21 +198,7 @@ class AudioRecordCapture(
         val mic = micRecord ?: return
         val play = playbackRecord ?: return
 
-        // 1. Mic Reader Thread
-        micThread = Thread({
-            val buf = ShortArray(chunkSize)
-            while (isRecording.get()) {
-                val read = mic.read(buf, 0, buf.size)
-                if (read > 0) {
-                    val copy = if (read == buf.size) buf.clone() else buf.copyOf(read)
-                    micQueue.offer(copy)
-                    // Keep queue bounded to avoid latency buildup
-                    while (micQueue.size > 10) micQueue.poll()
-                }
-            }
-        }, "EdgeOrtMicCaptureThread").apply { start() }
-
-        // 2. Playback (Speakers) Reader Thread
+        // 1. Playback (Speakers) Reader Thread
         playbackThread = Thread({
             val isStereo = play.channelCount == 2
             val readBufSize = if (isStereo) chunkSize * 2 else chunkSize
@@ -230,58 +218,90 @@ class AudioRecordCapture(
                         if (read == buf.size) buf.clone() else buf.copyOf(read)
                     }
                     playbackQueue.offer(mono)
-                    // Keep queue bounded
-                    while (playbackQueue.size > 10) playbackQueue.poll()
+                    // Keep queue bounded to avoid latency
+                    while (playbackQueue.size > 5) playbackQueue.poll()
                 }
             }
         }, "EdgeOrtPlaybackCaptureThread").apply { start() }
 
-        // 3. Audio Mixer Thread
-        mixerThread = Thread({
+        // 2. Mic Reader & Digital Mixer Thread (Master Clock: 16 kHz, 50ms chunks)
+        micThread = Thread({
+            val micBuf = ShortArray(chunkSize)
             val mixed = ShortArray(chunkSize)
+            var lastLogTime = System.currentTimeMillis()
+            var chunkCount = 0L
 
             while (isRecording.get()) {
-                val micChunk = micQueue.poll()
+                val micRead = mic.read(micBuf, 0, micBuf.size)
+                if (micRead <= 0) continue
+
+                chunkCount++
                 val playChunk = playbackQueue.poll()
 
-                if (micChunk == null && playChunk == null) {
-                    try {
-                        Thread.sleep(10)
-                    } catch (_: InterruptedException) {
-                        break
-                    }
-                    continue
-                }
+                var maxMicAmp = 0
+                var maxPlayAmp = 0
 
-                val maxLen = maxOf(micChunk?.size ?: 0, playChunk?.size ?: 0).coerceAtMost(chunkSize)
-                if (maxLen == 0) continue
-
-                for (i in 0 until maxLen) {
-                    val sMic = if (micChunk != null && i < micChunk.size) micChunk[i].toInt() else 0
+                for (i in 0 until micRead) {
+                    val sMic = micBuf[i].toInt()
                     val sPlay = if (playChunk != null && i < playChunk.size) playChunk[i].toInt() else 0
+                    val absMic = kotlin.math.abs(sMic)
+                    val absPlay = kotlin.math.abs(sPlay)
+                    if (absMic > maxMicAmp) maxMicAmp = absMic
+                    if (absPlay > maxPlayAmp) maxPlayAmp = absPlay
+
                     // Saturated 16-bit PCM addition
                     mixed[i] = (sMic + sPlay).coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
                 }
 
-                val slice = if (maxLen == chunkSize) mixed.toList() else mixed.take(maxLen)
+                val slice = if (micRead == chunkSize) mixed.toList() else mixed.take(micRead)
                 pipeline.pushPcm16(slice)
+                onAudioPcm?.let { cb ->
+                    val byteArr = ByteArray(slice.size * 2)
+                    for (idx in slice.indices) {
+                        val s = slice[idx]
+                        byteArr[idx * 2] = (s.toInt() and 0xFF).toByte()
+                        byteArr[idx * 2 + 1] = ((s.toInt() shr 8) and 0xFF).toByte()
+                    }
+                    cb(byteArr)
+                }
+
+                val now = System.currentTimeMillis()
+                if (now - lastLogTime >= 3000) {
+                    Log.d(TAG, "AudioStream: chunks=$chunkCount micMaxAmp=$maxMicAmp playMaxAmp=$maxPlayAmp playQueued=${playbackQueue.size}")
+                    lastLogTime = now
+                }
             }
-        }, "EdgeOrtAudioMixerThread").apply { start() }
+        }, "EdgeOrtMicAndMixerThread").apply { start() }
     }
 
     private fun startSingleMicCapture() {
         val mic = micRecord ?: return
         micThread = Thread({
             val audioBuffer = ShortArray(chunkSize)
+            var lastLogTime = System.currentTimeMillis()
+            var chunkCount = 0L
+
             while (isRecording.get()) {
                 val readCount = mic.read(audioBuffer, 0, audioBuffer.size)
                 if (readCount > 0) {
+                    chunkCount++
                     val slice = if (readCount == audioBuffer.size) {
                         audioBuffer.toList()
                     } else {
                         audioBuffer.take(readCount)
                     }
                     pipeline.pushPcm16(slice)
+
+                    val now = System.currentTimeMillis()
+                    if (now - lastLogTime >= 3000) {
+                        var maxAmp = 0
+                        for (i in 0 until readCount) {
+                            val a = kotlin.math.abs(audioBuffer[i].toInt())
+                            if (a > maxAmp) maxAmp = a
+                        }
+                        Log.d(TAG, "MicOnly: chunks=$chunkCount maxAmp=$maxAmp")
+                        lastLogTime = now
+                    }
                 }
             }
         }, "EdgeOrtMicCaptureThread").apply { start() }
@@ -293,10 +313,15 @@ class AudioRecordCapture(
             val isStereo = play.channelCount == 2
             val readBufSize = if (isStereo) chunkSize * 2 else chunkSize
             val audioBuffer = ShortArray(readBufSize)
+            var lastLogTime = System.currentTimeMillis()
+            var chunkCount = 0L
 
             while (isRecording.get()) {
                 val readCount = play.read(audioBuffer, 0, audioBuffer.size)
                 if (readCount > 0) {
+                    chunkCount++
+                    val monoList: List<Short>
+                    val monoBytes: ByteArray
                     if (isStereo) {
                         val monoLen = readCount / 2
                         val mono = ShortArray(monoLen) { i ->
@@ -304,14 +329,30 @@ class AudioRecordCapture(
                             val r = audioBuffer[i * 2 + 1].toInt()
                             ((l + r) / 2).toShort()
                         }
-                        pipeline.pushPcm16(mono.toList())
-                    } else {
-                        val slice = if (readCount == audioBuffer.size) {
-                            audioBuffer.toList()
-                        } else {
-                            audioBuffer.take(readCount)
+                        monoList = mono.toList()
+                        monoBytes = ByteArray(monoLen * 2)
+                        for (idx in 0 until monoLen) {
+                            val s = mono[idx]
+                            monoBytes[idx * 2] = (s.toInt() and 0xFF).toByte()
+                            monoBytes[idx * 2 + 1] = ((s.toInt() shr 8) and 0xFF).toByte()
                         }
-                        pipeline.pushPcm16(slice)
+                    } else {
+                        val mono = if (readCount == audioBuffer.size) audioBuffer else audioBuffer.copyOf(readCount)
+                        monoList = mono.toList()
+                        monoBytes = ByteArray(mono.size * 2)
+                        for (idx in mono.indices) {
+                            val s = mono[idx]
+                            monoBytes[idx * 2] = (s.toInt() and 0xFF).toByte()
+                            monoBytes[idx * 2 + 1] = ((s.toInt() shr 8) and 0xFF).toByte()
+                        }
+                    }
+                    pipeline.pushPcm16(monoList)
+                    onAudioPcm?.invoke(monoBytes)
+
+                    val now = System.currentTimeMillis()
+                    if (now - lastLogTime >= 3000) {
+                        Log.d(TAG, "PlaybackOnly: chunks=$chunkCount")
+                        lastLogTime = now
                     }
                 }
             }

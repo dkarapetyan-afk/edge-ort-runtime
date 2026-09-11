@@ -12,6 +12,7 @@ use crate::profile::Manifest;
 use crate::runtime::SessionManager;
 use ndarray::Array2;
 use ort::value::Tensor;
+#[cfg(not(target_os = "android"))]
 use std::sync::Arc;
 use tracing::{debug, info, warn};
 #[cfg(not(target_os = "android"))]
@@ -444,11 +445,10 @@ impl AsrNode {
         // Multilingual language selection: "auto" / "detect" → detect_language;
         // otherwise BCP-47 short code (en, fr, es, ar, …).
         let lang = self.language.to_ascii_lowercase();
+        params.set_detect_language(false);
         if lang == "auto" || lang == "detect" || lang == "multilingual" {
-            params.set_detect_language(true);
-            params.set_language(None);
+            params.set_language(Some("auto"));
         } else {
-            params.set_detect_language(false);
             // Leak-free: FullParams needs &'a str living for the call — language String is on self.
             params.set_language(Some(self.language.as_str()));
         }

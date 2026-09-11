@@ -49,6 +49,28 @@ impl NodeRegistry {
             CapabilityKind::Slm => self.slm.is_some(),
         }
     }
+
+    pub fn default_mobile() -> Self {
+        let vad_manifest = Manifest {
+            id: "vad-mobile".into(),
+            capability: CapabilityKind::Vad,
+            model_path: std::path::PathBuf::from("models/silero_vad.onnx"),
+            ..Default::default()
+        };
+        let asr_manifest = Manifest {
+            id: "asr-mobile".into(),
+            capability: CapabilityKind::Asr,
+            model_path: std::path::PathBuf::from("models/whisper.bin"),
+            ..Default::default()
+        };
+        Self {
+            vad: Some(VadNode::from_manifest(vad_manifest)),
+            asr: Some(AsrNode::from_manifest(asr_manifest)),
+            mt: None,
+            tts: None,
+            slm: None,
+        }
+    }
 }
 
 #[cfg(test)]

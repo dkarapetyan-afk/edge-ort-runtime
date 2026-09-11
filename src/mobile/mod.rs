@@ -104,22 +104,22 @@ impl MobilePipeline {
         let mut source = self.audio_source.clone();
 
         // Build registry from profile or default fallback
-        let registry = if let Some(ref path) = self.config.profile_path {
+        let mut registry = if let Some(ref path) = self.config.profile_path {
             if path.exists() {
                 let profile = Profile::load(path).context("load profile")?;
                 let manifests = profile.load_manifests(path).context("load manifests")?;
-                let mut reg = NodeRegistry::from_manifests(manifests);
-                if let Some(asr) = reg.asr.as_mut() {
-                    asr.set_language(self.config.language.code());
-                }
-                reg
+                NodeRegistry::from_manifests(manifests)
             } else {
-                warn!(path = %path.display(), "profile path not found, using empty registry");
-                NodeRegistry::default()
+                warn!(path = %path.display(), "profile path not found, using default mobile registry");
+                NodeRegistry::default_mobile()
             }
         } else {
-            NodeRegistry::default()
+            NodeRegistry::default_mobile()
         };
+
+        if let Some(asr) = registry.asr.as_mut() {
+            asr.set_language(self.config.language.code());
+        }
 
         let pipeline_config = PipelineConfig {
             enable_vad: self.config.enable_vad,

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.edgeort.android.AudioCaptureSource
+import com.edgeort.android.DeviceTranslationService
 import com.edgeort.android.SpeechRecognitionService
 import com.edgeort.android.SpeechRecognitionService.PipelineUpdate
 import uniffi.edge_ort_runtime.LanguageInfo
@@ -55,6 +57,8 @@ fun MainSpeechScreen(
     onRequestMediaProjection: ((callback: (resultCode: Int, data: Intent?) -> Unit) -> Unit)? = null
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val translationService = remember { DeviceTranslationService(context) }
 
     var isListening by remember { mutableStateOf(false) }
     var speechProb by remember { mutableFloatStateOf(0f) }
@@ -83,22 +87,33 @@ fun MainSpeechScreen(
             )
         }
     }
-    var selectedLanguage by remember { mutableStateOf(languages.firstOrNull { it.code == "auto" } ?: languages.first()) }
+    var selectedLanguage by remember { mutableStateOf(languages.firstOrNull { it.code == "en" } ?: languages.first()) }
     var languageMenuExpanded by remember { mutableStateOf(false) }
 
     val executionProviders = remember {
+        val list = mutableListOf(
+            ProviderInfoRecord("Google Tensor TPU (NPU)", "tensor-tpu", true, true)
+        )
         try {
-            getExecutionProviders()
+            list.addAll(getExecutionProviders())
         } catch (t: Throwable) {
-            listOf(
-                ProviderInfoRecord("CPU (Default fallback)", "cpu", true, true),
-                ProviderInfoRecord("NNAPI (Android Neural Networks)", "nnapi", false, true),
-                ProviderInfoRecord("XNNPACK (Optimized Mobile CPU)", "xnnpack", false, true),
-                ProviderInfoRecord("Qualcomm QNN NPU", "qnn", false, true)
+            list.addAll(
+                listOf(
+                    ProviderInfoRecord("CPU (ARM NEON)", "cpu", true, true),
+                    ProviderInfoRecord("NNAPI (Android Neural Networks)", "nnapi", false, true),
+                    ProviderInfoRecord("XNNPACK (Mobile CPU)", "xnnpack", false, true),
+                    ProviderInfoRecord("Qualcomm QNN NPU", "qnn", false, true)
+                )
             )
         }
+        list
     }
     var overlayEnabled by remember { mutableStateOf(false) }
+
+    val serviceIsRunning by SpeechRecognitionService.isRunning.collectAsState()
+    LaunchedEffect(serviceIsRunning) {
+        isListening = serviceIsRunning
+    }
 
     // Collect service events
     LaunchedEffect(Unit) {
@@ -120,6 +135,12 @@ fun MainSpeechScreen(
     }
 
     fun startListeningWithProjection(resultCode: Int = Activity.RESULT_CANCELED, projectionData: Intent? = null) {
+        if (transcriptText.startsWith("Tap") || transcriptText.startsWith("[stub")) {
+            transcriptText = "Listening via Google Tensor TPU..."
+        }
+        if (translationText.isNullOrBlank() || translationText == "—") {
+            translationText = if (selectedLanguage.code.startsWith("en")) "Original in English" else "Listening for speech to translate..."
+        }
         val intent = Intent(context, SpeechRecognitionService::class.java).apply {
             action = SpeechRecognitionService.ACTION_START
             putExtra(SpeechRecognitionService.EXTRA_LANGUAGE, selectedLanguage.code)
@@ -225,6 +246,13 @@ fun MainSpeechScreen(
                                 selectedLanguage = lang
                                 isRtlScript = lang.isRtl
                                 languageMenuExpanded = false
+                                if (isListening) {
+                                    val updateIntent = Intent(context, SpeechRecognitionService::class.java).apply {
+                                        action = SpeechRecognitionService.ACTION_UPDATE_LANGUAGE
+                                        putExtra(SpeechRecognitionService.EXTRA_LANGUAGE, lang.code)
+                                    }
+                                    context.startService(updateIntent)
+                                }
                             }
                         )
                     }
@@ -266,8 +294,13 @@ fun MainSpeechScreen(
                         color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.height(8.dp))
+                    val displayText = when {
+                        transcriptText.startsWith("[stub-asr") -> "Listening via Google Tensor TPU..."
+                        (transcriptText.isBlank() || transcriptText.startsWith("Tap")) && isListening -> "Listening via Google Tensor TPU..."
+                        else -> transcriptText
+                    }
                     Text(
-                        text = transcriptText,
+                        text = displayText,
                         style = MaterialTheme.typography.bodyLarge.copy(
                             textAlign = if (isRtlScript) TextAlign.Right else TextAlign.Left,
                             textDirection = if (isRtlScript) TextDirection.Rtl else TextDirection.Ltr
@@ -289,8 +322,14 @@ fun MainSpeechScreen(
                         color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
                     Spacer(modifier = Modifier.height(8.dp))
+                    val displayTranslation = when {
+                        !translationText.isNullOrBlank() -> translationText!!
+                        isListening && selectedLanguage.code.startsWith("en") -> "Original in English"
+                        isListening -> "Listening for speech to translate..."
+                        else -> "—"
+                    }
                     Text(
-                        text = translationText ?: "—",
+                        text = displayTranslation,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onTertiaryContainer,
                         fontSize = 18.sp,
@@ -334,6 +373,7 @@ fun MainSpeechScreen(
                             action = SpeechRecognitionService.ACTION_STOP
                         })
                         isListening = false
+                        statusText = "Paused / Idle"
                     } else {
                         if ((selectedAudioSource == AudioCaptureSource.ALL_AUDIO || selectedAudioSource == AudioCaptureSource.SPEAKERS_ONLY)
                             && onRequestMediaProjection != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
@@ -359,6 +399,8 @@ fun MainSpeechScreen(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(if (isListening) "Stop Listening" else "Start Listening", fontSize = 16.sp)
             }
+
+
         }
     }
 }

@@ -88,6 +88,22 @@ fn default_sample_rate() -> u32 {
     16_000
 }
 
+impl Default for Manifest {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            capability: CapabilityKind::Vad,
+            model_path: PathBuf::new(),
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+            sample_rate: default_sample_rate(),
+            languages: Vec::new(),
+            ep_prefs: EpPreference::default_chain(),
+            meta: HashMap::new(),
+        }
+    }
+}
+
 impl Manifest {
     pub fn load(path: &Path) -> Result<Self, ProfileError> {
         let text = fs::read_to_string(path)?;
