@@ -51,7 +51,7 @@ uniffi = { version = "0.32", features = ["cli"], optional = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 eframe = "0.36"
-egui = "0.36"
+egui = "0.37"
 # Whisper.cpp ASR plug (manifest meta.backend = "whisper_ggml"); VAD/TTS remain on ort.
 whisper-rs = "=0.16.0"
 
